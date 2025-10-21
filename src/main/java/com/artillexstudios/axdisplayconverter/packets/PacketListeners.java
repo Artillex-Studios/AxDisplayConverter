@@ -22,7 +22,9 @@ import org.bukkit.Location;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 
 import java.util.ArrayList;
@@ -42,6 +44,12 @@ public class PacketListeners extends PacketListener implements Listener {
         Scheduler.get().runTimer(() -> {
             spawningLocation.entrySet().removeIf(entry -> System.currentTimeMillis() - entry.getValue().date() > 1000);
         }, 20, 20);
+    }
+
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onJoin(PlayerJoinEvent event) {
+        ServerPlayerWrapper wrapper = ServerPlayerWrapper.wrap(event.getPlayer());
+        wrapper.inject();
     }
 
     @EventHandler
@@ -67,10 +75,9 @@ public class PacketListeners extends PacketListener implements Listener {
     }
 
     private void addEntity(PacketEvent event, ClientboundAddEntityWrapper wrapper) {
-        int id = wrapper.getEntityId();
-
         if (wrapper.getEntityType() != EntityManager.getEntityIDs().get(EntityType.TEXT_DISPLAY)) return;
 
+        int id = wrapper.getEntityId();
         spawningLocation.put(id, new SpawningDisplay(new Location(null, wrapper.getX(), wrapper.getY(), wrapper.getz(), wrapper.getYaw(), wrapper.getPitch()), System.currentTimeMillis()));
         TrackedPlayer trackedPlayer = tracked.computeIfAbsent(event.player(), k -> new TrackedPlayer(event.player(), new ConcurrentHashMap<>()));
         trackedPlayer.replacements().put(id, new ArrayList<>());
@@ -88,12 +95,12 @@ public class PacketListeners extends PacketListener implements Listener {
             ServerPlayerWrapper playerWrapper = ServerPlayerWrapper.wrap(event.player());
             if (playerWrapper == null) return;
 
-            TrackedPlayer trackedPlayer = tracked.get(event.player());
+            TrackedPlayer trackedPlayer = tracked.getOrDefault(event.player(), new TrackedPlayer(event.player(), new ConcurrentHashMap<>()));
 
             String raw = StringUtils.LEGACY_COMPONENT_SERIALIZER.serialize(component);
             String[] lines = raw.split("\n");
 
-            List<Integer> repIds = trackedPlayer.replacements().get(id);
+            List<Integer> repIds = trackedPlayer.replacements().getOrDefault(id, new ArrayList<>());
             if (lines.length != repIds.size()) {
                 // respawn if the line count has changed
                 sendRemoveEntities(playerWrapper, repIds);
