@@ -74,9 +74,9 @@ public class PacketListeners extends PacketListener implements Listener {
             int readerIndex = buf.readerIndex();
             int writerIndex = buf.writerIndex();
             int entityId = buf.readVarInt();
+            buf.readerIndex(readerIndex);
+            buf.writerIndex(writerIndex);
             if (!this.spawningLocation.containsKey(entityId)) {
-                buf.readerIndex(readerIndex);
-                buf.writerIndex(writerIndex);
                 return;
             }
             ClientboundEntityMetadataWrapper wrapper = new ClientboundEntityMetadataWrapper(event);
