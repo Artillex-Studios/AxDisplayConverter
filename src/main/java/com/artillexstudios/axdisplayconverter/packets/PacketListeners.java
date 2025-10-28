@@ -34,8 +34,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class PacketListeners extends PacketListener implements Listener {
+    private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private final Map<Player, TrackedPlayer> tracked = new ConcurrentHashMap<>();
     // temporary map to store locations before the metadata packet comes in
     private final Map<Integer, SpawningDisplay> spawningLocation = new ConcurrentHashMap<>();
@@ -103,65 +106,67 @@ public class PacketListeners extends PacketListener implements Listener {
             if (!(item.getValue() instanceof Component component)) continue;
             event.cancelled(true);
 
-            ServerPlayerWrapper playerWrapper = ServerPlayerWrapper.wrap(event.player());
-            if (playerWrapper == null) return;
+            executor.execute(() -> {
+                ServerPlayerWrapper playerWrapper = ServerPlayerWrapper.wrap(event.player());
+                if (playerWrapper == null) return;
 
-            TrackedPlayer trackedPlayer = tracked.getOrDefault(event.player(), new TrackedPlayer(event.player(), new ConcurrentHashMap<>()));
+                TrackedPlayer trackedPlayer = tracked.getOrDefault(event.player(), new TrackedPlayer(event.player(), new ConcurrentHashMap<>()));
 
-            String raw = StringUtils.LEGACY_COMPONENT_SERIALIZER.serialize(component);
-            String[] lines = raw.split("\n");
+                String raw = StringUtils.LEGACY_COMPONENT_SERIALIZER.serialize(component);
+                String[] lines = raw.split("\n");
 
-            List<Integer> repIds = trackedPlayer.replacements().getOrDefault(id, new ArrayList<>());
-            if (lines.length != repIds.size()) {
-                // respawn if the line count has changed
-                sendRemoveEntities(playerWrapper, repIds);
-                repIds.clear();
-            }
-
-            if (repIds.isEmpty()) {
-                // spawn
-                SpawningDisplay display = spawningLocation.remove(id);
-                if (display == null) return;
-                for (int i = 0; i < lines.length; i++) {
-                    int addId = ServerWrapper.INSTANCE.nextEntityId();
-                    repIds.add(addId);
-
-                    Location copy = display.location().clone();
-                    copy.setY(getNewHeight(copy.getY(), lines.length, i));
-
-                    ClientboundAddEntityWrapper addEntityWrapper = new ClientboundAddEntityWrapper(
-                            addId,
-                            UUID.randomUUID(),
-                            EntityManager.getEntityIDs().get(EntityType.ARMOR_STAND),
-                            copy.getX(),
-                            copy.getY(),
-                            copy.getZ(),
-                            (byte) 0,
-                            (byte) 0,
-                            (byte) 0,
-                            0,
-                            new Vector3d()
-                    );
-                    playerWrapper.sendPacket(addEntityWrapper);
+                List<Integer> repIds = trackedPlayer.replacements().getOrDefault(id, new ArrayList<>());
+                if (lines.length != repIds.size()) {
+                    // respawn if the line count has changed
+                    sendRemoveEntities(playerWrapper, repIds);
+                    repIds.clear();
                 }
 
-                trackedPlayer.replacements().put(id, repIds);
-            }
+                if (repIds.isEmpty()) {
+                    // spawn
+                    SpawningDisplay display = spawningLocation.remove(id);
+                    if (display == null) return;
+                    for (int i = 0; i < lines.length; i++) {
+                        int addId = ServerWrapper.INSTANCE.nextEntityId();
+                        repIds.add(addId);
 
-            // update
-            for (int i = 0; i < lines.length; i++) {
-                int repId = repIds.get(i);
-                String line = lines[i];
+                        Location copy = display.location().clone();
+                        copy.setY(getNewHeight(copy.getY(), lines.length, i));
 
-                List<Metadata.DataItem<?>> items = new ArrayList<>();
-                items.add(new Metadata.DataItem<>(15, EntityDataSerializers.BYTE, (byte) 0x10)); // marker
-                items.add(new Metadata.DataItem<>(0, EntityDataSerializers.BYTE, (byte) 0x20)); // invisible
-                items.add(new Metadata.DataItem<>(3, EntityDataSerializers.BOOLEAN, true)); // custom name visible
-                items.add(new Metadata.DataItem<>(2, EntityDataSerializers.OPTIONAL_COMPONENT, Optional.of(StringUtils.format(line)))); // custom name
-                ClientboundEntityMetadataWrapper metadataWrapper = new ClientboundEntityMetadataWrapper(repId, items);
-                playerWrapper.sendPacket(metadataWrapper);
-            }
+                        ClientboundAddEntityWrapper addEntityWrapper = new ClientboundAddEntityWrapper(
+                                addId,
+                                UUID.randomUUID(),
+                                EntityManager.getEntityIDs().get(EntityType.ARMOR_STAND),
+                                copy.getX(),
+                                copy.getY(),
+                                copy.getZ(),
+                                (byte) 0,
+                                (byte) 0,
+                                (byte) 0,
+                                0,
+                                new Vector3d()
+                        );
 
+                        playerWrapper.sendPacket(addEntityWrapper);
+                    }
+
+                    trackedPlayer.replacements().put(id, repIds);
+                }
+
+                // update
+                for (int i = 0; i < lines.length; i++) {
+                    int repId = repIds.get(i);
+                    String line = lines[i];
+
+                    List<Metadata.DataItem<?>> items = new ArrayList<>();
+                    items.add(new Metadata.DataItem<>(15, EntityDataSerializers.BYTE, (byte) 0x10)); // marker
+                    items.add(new Metadata.DataItem<>(0, EntityDataSerializers.BYTE, (byte) 0x20)); // invisible
+                    items.add(new Metadata.DataItem<>(3, EntityDataSerializers.BOOLEAN, true)); // custom name visible
+                    items.add(new Metadata.DataItem<>(2, EntityDataSerializers.OPTIONAL_COMPONENT, Optional.of(StringUtils.format(line)))); // custom name
+                    ClientboundEntityMetadataWrapper metadataWrapper = new ClientboundEntityMetadataWrapper(repId, items);
+                    playerWrapper.sendPacket(metadataWrapper);
+                }
+            });
             break;
         }
     }
