@@ -3,6 +3,7 @@ package com.artillexstudios.axdisplayconverter.packets;
 import com.artillexstudios.axapi.nms.wrapper.ServerPlayerWrapper;
 import com.artillexstudios.axapi.nms.wrapper.ServerWrapper;
 import com.artillexstudios.axapi.packet.ClientboundPacketTypes;
+import com.artillexstudios.axapi.packet.FriendlyByteBuf;
 import com.artillexstudios.axapi.packet.PacketEvent;
 import com.artillexstudios.axapi.packet.PacketListener;
 import com.artillexstudios.axapi.packet.wrapper.clientbound.ClientboundAddEntityWrapper;
@@ -65,6 +66,16 @@ public class PacketListeners extends PacketListener implements Listener {
             addEntity(event, wrapper);
         } else if (event.type() == ClientboundPacketTypes.SET_ENTITY_DATA) {
             if (!VersionUtils.isOutdated(event.player())) return;
+            // Early return to optimize when there are lots of metadata packets
+            FriendlyByteBuf buf = event.in();
+            int readerIndex = buf.readerIndex();
+            int writerIndex = buf.writerIndex();
+            int entityId = buf.readVarInt();
+            if (!this.spawningLocation.containsKey(entityId)) {
+                buf.readerIndex(readerIndex);
+                buf.writerIndex(writerIndex);
+                return;
+            }
             ClientboundEntityMetadataWrapper wrapper = new ClientboundEntityMetadataWrapper(event);
             setMetaData(event, wrapper);
         } else if (event.type() == ClientboundPacketTypes.REMOVE_ENTITIES) {

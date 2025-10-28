@@ -30,5 +30,6 @@ public final class AxDisplayConverter extends AxPlugin {
     public void updateFlags() {
         FeatureFlags.ENABLE_PACKET_LISTENERS.set(true);
         FeatureFlags.USE_LEGACY_HEX_FORMATTER.set(true);
+        FeatureFlags.COMPONENT_CACHE_SIZE.set(10_000);
     }
 }
