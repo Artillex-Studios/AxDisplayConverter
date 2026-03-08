@@ -6,7 +6,7 @@
 
     <groupId>com.artillexstudios</groupId>
     <artifactId>AxDisplayConverter</artifactId>
-    <version>1.0.0</version>
+    <version>1.1.0</version>
     <packaging>jar</packaging>
 
     <name>AxDisplayConverter</name>
@@ -75,20 +75,20 @@
         <dependency>
             <groupId>com.artillexstudios.axapi</groupId>
             <artifactId>axapi</artifactId>
-            <version>1.4.803</version>
+            <version>1.4.840</version>
             <scope>compile</scope>
             <classifier>all</classifier>
         </dependency>
         <dependency>
             <groupId>net.kyori</groupId>
             <artifactId>adventure-api</artifactId>
-            <version>4.25.0</version>
+            <version>4.26.1</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>com.viaversion</groupId>
             <artifactId>viaversion-api</artifactId>
-            <version>5.5.1</version>
+            <version>5.7.2</version>
             <scope>provided</scope>
         </dependency>
     </dependencies>

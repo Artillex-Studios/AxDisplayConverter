@@ -3,10 +3,8 @@ package com.artillexstudios.axdisplayconverter.packets;
 import com.artillexstudios.axapi.nms.wrapper.ServerPlayerWrapper;
 import com.artillexstudios.axapi.nms.wrapper.ServerWrapper;
 import com.artillexstudios.axapi.packet.ClientboundPacketTypes;
-import com.artillexstudios.axapi.packet.FriendlyByteBuf;
 import com.artillexstudios.axapi.packet.PacketEvent;
 import com.artillexstudios.axapi.packet.PacketListener;
-import com.artillexstudios.axapi.packet.wrapper.clientbound.ClientboundAddEntityWrapper;
 import com.artillexstudios.axapi.packet.wrapper.clientbound.ClientboundEntityMetadataWrapper;
 import com.artillexstudios.axapi.packetentity.meta.Metadata;
 import com.artillexstudios.axapi.packetentity.meta.serializer.EntityDataSerializers;
@@ -14,6 +12,7 @@ import com.artillexstudios.axapi.scheduler.Scheduler;
 import com.artillexstudios.axapi.utils.StringUtils;
 import com.artillexstudios.axapi.utils.Vector3d;
 import com.artillexstudios.axdisplayconverter.entityid.EntityManager;
+import com.artillexstudios.axdisplayconverter.packets.wrappers.AddEntity1_21_10;
 import com.artillexstudios.axdisplayconverter.packets.wrappers.ClientboundRemoveEntitiesWrapper;
 import com.artillexstudios.axdisplayconverter.records.SpawningDisplay;
 import com.artillexstudios.axdisplayconverter.records.TrackedPlayer;
@@ -29,6 +28,7 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -65,20 +65,19 @@ public class PacketListeners extends PacketListener implements Listener {
     public void onPacketSending(PacketEvent event) {
         if (event.type() == ClientboundPacketTypes.ADD_ENTITY) {
             if (!VersionUtils.isOutdated(event.player())) return;
-            ClientboundAddEntityWrapper wrapper = new ClientboundAddEntityWrapper(event);
+            AddEntity1_21_10 wrapper = new AddEntity1_21_10(event);
             addEntity(event, wrapper);
         } else if (event.type() == ClientboundPacketTypes.SET_ENTITY_DATA) {
             if (!VersionUtils.isOutdated(event.player())) return;
-            // Early return to optimize when there are lots of metadata packets
-            FriendlyByteBuf buf = event.in();
-            int readerIndex = buf.readerIndex();
-            int writerIndex = buf.writerIndex();
-            int entityId = buf.readVarInt();
-            buf.readerIndex(readerIndex);
-            buf.writerIndex(writerIndex);
-            if (!this.spawningLocation.containsKey(entityId)) {
-                return;
-            }
+//            FriendlyByteBuf buf = event.in();
+//            int readerIndex = buf.readerIndex();
+//            int writerIndex = buf.writerIndex();
+//            int entityId = buf.readVarInt();
+//            buf.readerIndex(readerIndex);
+//            buf.writerIndex(writerIndex);
+//            if (!this.spawningLocation.containsKey(entityId)) {
+//                return;
+//            }
             ClientboundEntityMetadataWrapper wrapper = new ClientboundEntityMetadataWrapper(event);
             setMetaData(event, wrapper);
         } else if (event.type() == ClientboundPacketTypes.REMOVE_ENTITIES) {
@@ -88,9 +87,8 @@ public class PacketListeners extends PacketListener implements Listener {
         }
     }
 
-    private void addEntity(PacketEvent event, ClientboundAddEntityWrapper wrapper) {
+    private void addEntity(PacketEvent event, AddEntity1_21_10 wrapper) {
         if (wrapper.getEntityType() != EntityManager.getEntityIDs().get(EntityType.TEXT_DISPLAY)) return;
-
         int id = wrapper.getEntityId();
         spawningLocation.put(id, new SpawningDisplay(new Location(null, wrapper.getX(), wrapper.getY(), wrapper.getz(), wrapper.getYaw(), wrapper.getPitch()), System.currentTimeMillis()));
         TrackedPlayer trackedPlayer = tracked.computeIfAbsent(event.player(), k -> new TrackedPlayer(event.player(), new ConcurrentHashMap<>()));
@@ -106,7 +104,7 @@ public class PacketListeners extends PacketListener implements Listener {
             if (!(item.getValue() instanceof Component component)) continue;
             event.cancelled(true);
 
-            executor.execute(() -> {
+//            executor.execute(() -> {
                 ServerPlayerWrapper playerWrapper = ServerPlayerWrapper.wrap(event.player());
                 if (playerWrapper == null) return;
 
@@ -133,18 +131,19 @@ public class PacketListeners extends PacketListener implements Listener {
                         Location copy = display.location().clone();
                         copy.setY(getNewHeight(copy.getY(), lines.length, i));
 
-                        ClientboundAddEntityWrapper addEntityWrapper = new ClientboundAddEntityWrapper(
+//                        ClientboundAddEntityWrapper
+                        AddEntity1_21_10 addEntityWrapper = new AddEntity1_21_10(
                                 addId,
                                 UUID.randomUUID(),
                                 EntityManager.getEntityIDs().get(EntityType.ARMOR_STAND),
                                 copy.getX(),
                                 copy.getY(),
                                 copy.getZ(),
+                                new Vector3d(),
                                 (byte) 0,
                                 (byte) 0,
                                 (byte) 0,
-                                0,
-                                new Vector3d()
+                                0
                         );
 
                         playerWrapper.sendPacket(addEntityWrapper);
@@ -166,7 +165,7 @@ public class PacketListeners extends PacketListener implements Listener {
                     ClientboundEntityMetadataWrapper metadataWrapper = new ClientboundEntityMetadataWrapper(repId, items);
                     playerWrapper.sendPacket(metadataWrapper);
                 }
-            });
+//            });
             break;
         }
     }
