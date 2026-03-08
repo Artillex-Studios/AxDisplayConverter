@@ -38,16 +38,19 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class PacketListeners extends PacketListener implements Listener {
-    private final ExecutorService executor = Executors.newSingleThreadExecutor();
-    private final Map<Player, TrackedPlayer> tracked = new ConcurrentHashMap<>();
+    private static final Map<Player, TrackedPlayer> tracked = new ConcurrentHashMap<>();
     // temporary map to store locations before the metadata packet comes in
-    private final Map<Integer, SpawningDisplay> spawningLocation = new ConcurrentHashMap<>();
+    private static final Map<Integer, SpawningDisplay> spawningLocation = new ConcurrentHashMap<>();
 
     public PacketListeners() {
         // if no metadata was sent within a second, remove
         Scheduler.get().runTimer(() -> {
             spawningLocation.entrySet().removeIf(entry -> System.currentTimeMillis() - entry.getValue().date() > 1000);
         }, 20, 20);
+    }
+
+    public static Map<Player, TrackedPlayer> getTracked() {
+        return tracked;
     }
 
     @EventHandler(priority = EventPriority.LOWEST)
@@ -112,9 +115,10 @@ public class PacketListeners extends PacketListener implements Listener {
 
                 String raw = StringUtils.LEGACY_COMPONENT_SERIALIZER.serialize(component);
                 String[] lines = raw.split("\n");
+                long blankLines = Arrays.stream(lines).filter(String::isBlank).count();
 
                 List<Integer> repIds = trackedPlayer.replacements().getOrDefault(id, new ArrayList<>());
-                if (lines.length != repIds.size()) {
+                if ((lines.length - blankLines) != repIds.size()) {
                     // respawn if the line count has changed
                     sendRemoveEntities(playerWrapper, repIds);
                     repIds.clear();
@@ -125,6 +129,8 @@ public class PacketListeners extends PacketListener implements Listener {
                     SpawningDisplay display = spawningLocation.remove(id);
                     if (display == null) return;
                     for (int i = 0; i < lines.length; i++) {
+                        String line = lines[i];
+                        if (line.isBlank()) continue;
                         int addId = ServerWrapper.INSTANCE.nextEntityId();
                         repIds.add(addId);
 
@@ -153,9 +159,14 @@ public class PacketListeners extends PacketListener implements Listener {
                 }
 
                 // update
+                int blanks = 0;
                 for (int i = 0; i < lines.length; i++) {
-                    int repId = repIds.get(i);
                     String line = lines[i];
+                    if (line.isBlank()) {
+                        blanks++;
+                        continue;
+                    }
+                    int repId = repIds.get(i - blanks);
 
                     List<Metadata.DataItem<?>> items = new ArrayList<>();
                     items.add(new Metadata.DataItem<>(15, EntityDataSerializers.BYTE, (byte) 0x10)); // marker
