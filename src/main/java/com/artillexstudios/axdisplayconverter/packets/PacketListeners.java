@@ -5,6 +5,7 @@ import com.artillexstudios.axapi.nms.wrapper.ServerWrapper;
 import com.artillexstudios.axapi.packet.ClientboundPacketTypes;
 import com.artillexstudios.axapi.packet.PacketEvent;
 import com.artillexstudios.axapi.packet.PacketListener;
+import com.artillexstudios.axapi.packet.wrapper.clientbound.ClientboundAddEntityWrapper;
 import com.artillexstudios.axapi.packet.wrapper.clientbound.ClientboundEntityMetadataWrapper;
 import com.artillexstudios.axapi.packetentity.meta.Metadata;
 import com.artillexstudios.axapi.packetentity.meta.serializer.EntityDataSerializers;
@@ -12,7 +13,6 @@ import com.artillexstudios.axapi.scheduler.Scheduler;
 import com.artillexstudios.axapi.utils.StringUtils;
 import com.artillexstudios.axapi.utils.Vector3d;
 import com.artillexstudios.axdisplayconverter.entityid.EntityManager;
-import com.artillexstudios.axdisplayconverter.packets.wrappers.AddEntity1_21_10;
 import com.artillexstudios.axdisplayconverter.packets.wrappers.ClientboundRemoveEntitiesWrapper;
 import com.artillexstudios.axdisplayconverter.records.SpawningDisplay;
 import com.artillexstudios.axdisplayconverter.records.TrackedPlayer;
@@ -34,8 +34,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 public class PacketListeners extends PacketListener implements Listener {
     private static final Map<Player, TrackedPlayer> tracked = new ConcurrentHashMap<>();
@@ -68,7 +66,7 @@ public class PacketListeners extends PacketListener implements Listener {
     public void onPacketSending(PacketEvent event) {
         if (event.type() == ClientboundPacketTypes.ADD_ENTITY) {
             if (!VersionUtils.isOutdated(event.player())) return;
-            AddEntity1_21_10 wrapper = new AddEntity1_21_10(event);
+            ClientboundAddEntityWrapper wrapper = new ClientboundAddEntityWrapper(event);
             addEntity(event, wrapper);
         } else if (event.type() == ClientboundPacketTypes.SET_ENTITY_DATA) {
             if (!VersionUtils.isOutdated(event.player())) return;
@@ -90,7 +88,7 @@ public class PacketListeners extends PacketListener implements Listener {
         }
     }
 
-    private void addEntity(PacketEvent event, AddEntity1_21_10 wrapper) {
+    private void addEntity(PacketEvent event, ClientboundAddEntityWrapper wrapper) {
         if (wrapper.getEntityType() != EntityManager.getEntityIDs().get(EntityType.TEXT_DISPLAY)) return;
         int id = wrapper.getEntityId();
         spawningLocation.put(id, new SpawningDisplay(new Location(null, wrapper.getX(), wrapper.getY(), wrapper.getz(), wrapper.getYaw(), wrapper.getPitch()), System.currentTimeMillis()));
@@ -137,19 +135,18 @@ public class PacketListeners extends PacketListener implements Listener {
                         Location copy = display.location().clone();
                         copy.setY(getNewHeight(copy.getY(), lines.length, i));
 
-//                        ClientboundAddEntityWrapper
-                        AddEntity1_21_10 addEntityWrapper = new AddEntity1_21_10(
+                        ClientboundAddEntityWrapper addEntityWrapper = new ClientboundAddEntityWrapper(
                                 addId,
                                 UUID.randomUUID(),
                                 EntityManager.getEntityIDs().get(EntityType.ARMOR_STAND),
                                 copy.getX(),
                                 copy.getY(),
                                 copy.getZ(),
-                                new Vector3d(),
                                 (byte) 0,
                                 (byte) 0,
                                 (byte) 0,
-                                0
+                                0,
+                                new Vector3d()
                         );
 
                         playerWrapper.sendPacket(addEntityWrapper);
